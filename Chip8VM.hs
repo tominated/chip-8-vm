@@ -1,5 +1,6 @@
 module Chip8VM
-( step
+( loadProgram
+, step
 ) where
 
 import Data.Word
@@ -15,7 +16,7 @@ data VMState = VMState { memory :: UArray Int Word8 -- VM Memory
 
 loadProgram :: [Word8] -> VMState
 loadProgram p = VMState { memory = listArray (0, 4095) p
-                        , pc = 0x200
+                        , pc = 0x200 -- CHIP-8 programs start here in memory
                         , i = 0x0
                         , v = listArray (0, 16) [] }
 
@@ -30,7 +31,7 @@ runInstruction s 0xD000 ops = s
 
 step :: VMState -> VMState
 step s = runInstruction nextState opcode instruction
-  where instruction = (((memory s) ! (pc s)) shiftL 8) + ((memory s) ! ((pc s) + 1))
+  where instruction = (shiftL ((memory s) ! (fromIntegral (pc s))) 8) + ((memory s) ! ((fromIntegral (pc s)) + 1))
         opcode = instruction .&. 0xF000
         nextState = s { pc = (pc s) + (2 :: Word8) }
 
