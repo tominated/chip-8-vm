@@ -21,12 +21,43 @@ loadProgram p = VMState { memory = listArray (0, 4095) p
                         , v = listArray (0, 16) [] }
 
 runInstruction :: VMState -> Word8 -> Word8 -> VMState
-runInstruction s 0x1000 ops = s
-runInstruction s 0x3000 ops = s
-runInstruction s 0x6000 ops = s
-runInstruction s 0x7000 ops = s
-runInstruction s 0xA000 ops = s
-runInstruction s 0xC000 ops = s
+
+-- '1nnn' - Jump to location nnn
+runInstruction s 0x1000 ops =
+  s { pc = ops .&. 0x0FFF}
+
+-- '3xkk' - Skip to next instruction if Vx == kk
+runInstruction s 0x3000 ops =
+  if vx == kk then s { pc = (pc s) + (2 :: Word8) } else s
+  where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
+        kk = ops .&. 0x00FF
+        vx = (v s) ! x
+
+-- '6xkk' - Set Vx = kk
+runInstruction s 0x6000 ops = s { v = v' }
+  where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
+        kk = ops .&. 0x00FF
+        v' = (v s) // [(x, kk)]
+
+-- '7xkk' - Set Vx = Vx + kk
+runInstruction s 0x7000 ops = s { v = v' }
+  where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
+        vx = (v s) ! x
+        kk = ops .&. 0x00FF
+        v' = (v s) // [(x, vx + kk)]
+
+-- 'Annn' - Set I = nnn
+runInstruction s 0xA000 ops = s { i = fromIntegral nnn }
+  where nnn = ops .&. 0x0FFF
+
+-- 'Cxkk' - Set Vx = random byte AND kk
+runInstruction s 0xC000 ops = s { v = v' }
+  where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
+        kk = ops .&. 0x00FF
+        rand = 255 -- Totally random, right? Still unsure how I should do this
+        v' = (v s) // [(x, rand .&. kk)]
+
+-- 'Dxyn' - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
 runInstruction s 0xD000 ops = s
 
 step :: VMState -> VMState
