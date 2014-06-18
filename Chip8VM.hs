@@ -58,7 +58,7 @@ runInstruction s 0xA000 ops = s { i = fromIntegral nnn }
 runInstruction s 0xC000 ops = s { v = v' }
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
         kk = fromIntegral $ ops .&. 0x00FF
-        rand = 255 -- Totally random, right? Still unsure how I should do this
+        rand = 9 -- http://dilbert.com/strips/comic/2001-10-25/
         v' = (v s) // [(x, rand .&. kk)]
 
 -- 'Dxyn' - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
