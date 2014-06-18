@@ -24,7 +24,7 @@ createVM p = VMState { memory = listArray (0x0, 0xFFF) memContents
                      , v = listArray (0, 16) [] }
   where memContents = (replicate 0x200 (0x0 :: Word8)) ++ p
 
-runInstruction :: VMState -> Word8 -> Word8 -> VMState
+runInstruction :: VMState -> Word -> Word -> VMState
 
 -- '1nnn' - Jump to location nnn
 runInstruction s 0x1000 ops =
@@ -35,20 +35,20 @@ runInstruction s 0x3000 ops =
   if vx == kk then s { pc = (pc s) + 2 } else s
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
         kk = ops .&. 0x00FF
-        vx = (v s) ! x
+        vx = fromIntegral $ (v s) ! x
 
 -- '6xkk' - Set Vx = kk
 runInstruction s 0x6000 ops = s { v = v' }
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
         kk = ops .&. 0x00FF
-        v' = (v s) // [(x, kk)]
+        v' = (v s) // [(x, fromIntegral kk)]
 
 -- '7xkk' - Set Vx = Vx + kk
 runInstruction s 0x7000 ops = s { v = v' }
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
         vx = (v s) ! x
         kk = ops .&. 0x00FF
-        v' = (v s) // [(x, vx + kk)]
+        v' = (v s) // [(x, vx + (fromIntegral kk))]
 
 -- 'Annn' - Set I = nnn
 runInstruction s 0xA000 ops = s { i = fromIntegral nnn }
@@ -59,15 +59,17 @@ runInstruction s 0xC000 ops = s { v = v' }
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
         kk = ops .&. 0x00FF
         rand = 255 -- Totally random, right? Still unsure how I should do this
-        v' = (v s) // [(x, rand .&. kk)]
+        v' = (v s) // [(x, rand .&. (fromIntegral kk))]
 
 -- 'Dxyn' - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
 runInstruction s 0xD000 ops = s
 
--- This is broken. 'instruction' wraps around at 255 which isn't wanted
+-- Runs the next instruction on the VM state and returns the resulting state
 step :: VMState -> VMState
 step s = runInstruction nextState opcode instruction
-  where instruction = (shiftL ((memory s) ! (fromIntegral (pc s))) 8) + ((memory s) ! ((fromIntegral (pc s)) + 1))
+  where b1 = fromIntegral $ (memory s) ! (pc s) :: Word8 -- First byte converted to int
+        b2 = fromIntegral $ (memory s) ! ((pc s) + 1) :: Word8 -- Second byte
+        instruction = (shiftL (fromIntegral b1 :: Word) 8) + (fromIntegral b2 :: Word)
         opcode = instruction .&. 0xF000
         nextState = s { pc = (pc s) + 2 }
 
