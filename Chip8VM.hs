@@ -40,15 +40,15 @@ runInstruction s 0x3000 ops =
 -- '6xkk' - Set Vx = kk
 runInstruction s 0x6000 ops = s { v = v' }
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
-        kk = ops .&. 0x00FF
-        v' = (v s) // [(x, fromIntegral kk)]
+        kk = fromIntegral $ ops .&. 0x00FF
+        v' = (v s) // [(x, kk)]
 
 -- '7xkk' - Set Vx = Vx + kk
 runInstruction s 0x7000 ops = s { v = v' }
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
         vx = (v s) ! x
-        kk = ops .&. 0x00FF
-        v' = (v s) // [(x, vx + (fromIntegral kk))]
+        kk = fromIntegral $ ops .&. 0x00FF
+        v' = (v s) // [(x, vx + kk)]
 
 -- 'Annn' - Set I = nnn
 runInstruction s 0xA000 ops = s { i = fromIntegral nnn }
@@ -57,9 +57,9 @@ runInstruction s 0xA000 ops = s { i = fromIntegral nnn }
 -- 'Cxkk' - Set Vx = random byte AND kk
 runInstruction s 0xC000 ops = s { v = v' }
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
-        kk = ops .&. 0x00FF
+        kk = fromIntegral $ ops .&. 0x00FF
         rand = 255 -- Totally random, right? Still unsure how I should do this
-        v' = (v s) // [(x, rand .&. (fromIntegral kk))]
+        v' = (v s) // [(x, rand .&. kk)]
 
 -- 'Dxyn' - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
 runInstruction s 0xD000 ops = s
@@ -67,9 +67,9 @@ runInstruction s 0xD000 ops = s
 -- Runs the next instruction on the VM state and returns the resulting state
 step :: VMState -> VMState
 step s = runInstruction nextState opcode instruction
-  where b1 = fromIntegral $ (memory s) ! (pc s) :: Word8 -- First byte converted to int
-        b2 = fromIntegral $ (memory s) ! ((pc s) + 1) :: Word8 -- Second byte
-        instruction = (shiftL (fromIntegral b1 :: Word) 8) + (fromIntegral b2 :: Word)
+  where b1 = fromIntegral $ (memory s) ! (pc s) :: Word -- First byte in instruction
+        b2 = fromIntegral $ (memory s) ! ((pc s) + 1) :: Word -- Second byte in instruction
+        instruction = (shiftL b1 8) + b2
         opcode = instruction .&. 0xF000
         nextState = s { pc = (pc s) + 2 }
 
