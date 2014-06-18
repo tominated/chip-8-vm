@@ -1,34 +1,38 @@
 module Chip8VM
-( loadProgram
+( createVM
 , step
+, runInstruction
 ) where
 
 import Data.Word
 import Data.Bits
 import Data.Array.Unboxed
 import Data.Array.Base
+import qualified Data.ByteString as BS
+import System.IO
 
 data VMState = VMState { memory :: UArray Int Word8 -- VM Memory
-                       , pc :: Word8                -- Program counter
+                       , pc :: Int                  -- Program counter
                        , i :: Word16                -- 16-bit register
                        , v :: UArray Int Word8      -- 8-bit registers
                        } deriving (Show)
 
-loadProgram :: [Word8] -> VMState
-loadProgram p = VMState { memory = listArray (0, 4095) p
-                        , pc = 0x200 -- CHIP-8 programs start here in memory
-                        , i = 0x0
-                        , v = listArray (0, 16) [] }
+createVM :: [Word8] -> VMState
+createVM p = VMState { memory = listArray (0x0, 0xFFF) memContents
+                     , pc = 0x200 -- CHIP-8 programs start here in memory
+                     , i = 0x0
+                     , v = listArray (0, 16) [] }
+  where memContents = (replicate 0x200 (0x0 :: Word8)) ++ p
 
 runInstruction :: VMState -> Word8 -> Word8 -> VMState
 
 -- '1nnn' - Jump to location nnn
 runInstruction s 0x1000 ops =
-  s { pc = ops .&. 0x0FFF}
+  s { pc = fromIntegral $ ops .&. 0x0FFF}
 
 -- '3xkk' - Skip to next instruction if Vx == kk
 runInstruction s 0x3000 ops =
-  if vx == kk then s { pc = (pc s) + (2 :: Word8) } else s
+  if vx == kk then s { pc = (pc s) + 2 } else s
   where x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
         kk = ops .&. 0x00FF
         vx = (v s) ! x
@@ -60,12 +64,31 @@ runInstruction s 0xC000 ops = s { v = v' }
 -- 'Dxyn' - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
 runInstruction s 0xD000 ops = s
 
+-- This is broken. 'instruction' wraps around at 255 which isn't wanted
 step :: VMState -> VMState
 step s = runInstruction nextState opcode instruction
   where instruction = (shiftL ((memory s) ! (fromIntegral (pc s))) 8) + ((memory s) ! ((fromIntegral (pc s)) + 1))
         opcode = instruction .&. 0xF000
-        nextState = s { pc = (pc s) + (2 :: Word8) }
+        nextState = s { pc = (pc s) + 2 }
+
+stepLoop :: VMState -> IO ()
+stepLoop s = do
+  putStr "PC: "
+  print $ pc s
+
+  putStr "V: "
+  print $ v s
+
+  putStr "I: "
+  print $ i s
+
+  putStr "Press enter to step"
+  hFlush stdout
+  getLine
+  stepLoop $ step s
 
 main :: IO ()
 main = do
-  putStrLn "Hello, world!"
+  program <- BS.readFile "roms/MAZE"
+  let vm = createVM $ BS.unpack program
+  stepLoop vm
