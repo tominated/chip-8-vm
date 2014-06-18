@@ -22,7 +22,7 @@ data VMState = VMState
     } deriving (Show)
 
 -- | Creates a new VM state for a given program ROM
-createVM :: [Word8]     -- ^ A byte array of the ROM to load
+createVM :: [Word8]  -- ^ A byte array of the ROM to load
          -> VMState  -- ^ A VM with the ROM in memory
 createVM p = VMState { memory = listArray (0x0, 0xFFF) memContents
                      , pc = 0x200 -- CHIP-8 programs start here in memory
@@ -33,7 +33,7 @@ createVM p = VMState { memory = listArray (0x0, 0xFFF) memContents
     memContents = (replicate 0x200 (0x0 :: Word8)) ++ p
 
 -- | Runs a cpu instruction on VM state and returns the resulting state
-runInstruction :: VMState     -- ^ The starting state
+runInstruction :: VMState  -- ^ The starting state
                -> Word     -- ^ The instruction opcode
                -> Word     -- ^ The instruction operands
                -> VMState  -- ^ The manipulated state
@@ -83,7 +83,7 @@ runInstruction s 0xC000 ops = s { v = v' }
 runInstruction s 0xD000 ops = s
 
 -- | Runs the next instruction on the VM state and returns the resulting state
-step :: VMState     -- ^ The starting state
+step :: VMState  -- ^ The starting state
      -> VMState  -- ^ The stepped through state
 step s = runInstruction nextState opcode instruction
   where
