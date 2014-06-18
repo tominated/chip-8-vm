@@ -11,17 +11,19 @@ import Data.Array.Base
 import qualified Data.ByteString as BS
 import System.IO
 
-data VMState = VMState { memory :: UArray Int Word8 -- VM Memory
-                       , pc :: Int                  -- Program counter
+data VMState = VMState { memory :: UArray Word Word8 -- VM Memory
+                       , pc :: Word                  -- Program counter
                        , i :: Word16                -- 16-bit register
-                       , v :: UArray Int Word8      -- 8-bit registers
+                       , v :: UArray Word Word8      -- 8-bit registers
+                       , display :: UArray (Word, Word) Bool
                        } deriving (Show)
 
 createVM :: [Word8] -> VMState
 createVM p = VMState { memory = listArray (0x0, 0xFFF) memContents
                      , pc = 0x200 -- CHIP-8 programs start here in memory
                      , i = 0x0
-                     , v = listArray (0, 16) [] }
+                     , v = listArray (0, 16) []
+                     , display = listArray ((0,0),(63,31)) (repeat False) }
   where memContents = (replicate 0x200 (0x0 :: Word8)) ++ p
 
 runInstruction :: VMState -> Word -> Word -> VMState
