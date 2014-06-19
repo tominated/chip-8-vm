@@ -3,6 +3,7 @@ module Chip8VM
       createVM
     , step
     , runInstruction
+    , getSprite
     ) where
 
 import Data.Word
@@ -14,8 +15,8 @@ import System.IO
 
 -- | Represents the state of a CHIP-8 VM at any given time
 data VMState = VMState
-    { memory :: UArray Word Word8         -- ^ VM Memory
-    , pc :: Word                          -- ^ Program counter
+    { memory :: UArray Int Word8          -- ^ VM Memory
+    , pc :: Int                           -- ^ Program counter
     , i :: Word16                         -- ^ 16-bit register
     , v :: UArray Word Word8              -- ^ 8-bit registers
     , display :: UArray (Word, Word) Bool -- ^ Simulates a b/w display
@@ -81,6 +82,18 @@ runInstruction s 0xC000 ops = s { v = v' }
 
 -- 'Dxyn' - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
 runInstruction s 0xD000 ops = s
+
+-- | Gets a sprite from a memory location and returns it's pixel coordinates
+getSprite :: VMState         -- ^ The VM state
+          -> Int             -- ^ The memory address of the sprite
+          -> Int             -- ^ The byte length of the sprite in memory
+          -> [(Word, Word)]  -- ^ Pixel coordinates representing the sprite
+getSprite s addr n =
+    [(fromIntegral x, fromIntegral y)
+        | y <- range (0, n)
+        , x <- [7,6..0]
+        , let line = addr + y
+        , (shiftR ((memory s) ! line) x) .&. 1 == 1]
 
 -- | Runs the next instruction on the VM state and returns the resulting state
 step :: VMState  -- ^ The starting state
