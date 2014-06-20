@@ -8,6 +8,7 @@ module Chip8VM
 
 import Data.Word
 import Data.Bits
+import Data.Bool
 import Data.Array.Unboxed
 import Data.Array.Base
 import qualified Data.ByteString as BS
@@ -15,11 +16,11 @@ import System.IO
 
 -- | Represents the state of a CHIP-8 VM at any given time
 data VMState = VMState
-    { memory :: UArray Int Word8          -- ^ VM Memory
-    , pc :: Int                           -- ^ Program counter
-    , i :: Word16                         -- ^ 16-bit register
-    , v :: UArray Word Word8              -- ^ 8-bit registers
-    , display :: UArray (Word, Word) Bool -- ^ Simulates a b/w display
+    { memory :: UArray Word16 Word8            -- ^ VM Memory
+    , pc :: Word16                             -- ^ Program counter
+    , i :: Word16                              -- ^ 16-bit register
+    , v :: UArray Word16 Word8                 -- ^ 8-bit registers
+    , display :: UArray (Word16, Word16) Bool  -- ^ Simulates a b/w display
     } deriving (Show)
 
 -- | Creates a new VM state for a given program ROM
@@ -84,16 +85,38 @@ runInstruction s 0xC000 ops = s { v = v' }
 runInstruction s 0xD000 ops = s
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
-getSprite :: VMState         -- ^ The VM state
-          -> Int             -- ^ The memory address of the sprite
-          -> Int             -- ^ The byte length of the sprite in memory
-          -> [(Word, Word)]  -- ^ Pixel coordinates representing the sprite
+getSprite :: VMState             -- ^ The VM state
+          -> Word16              -- ^ The memory address of the sprite
+          -> Word                -- ^ The byte length of the sprite in memory
+          -> [(Word16, Word16)]  -- ^ Pixel coordinates representing the sprite
 getSprite s addr n =
     [(fromIntegral x, fromIntegral y)
         | y <- range (0, n)
         , x <- [7,6..0]
-        , let line = addr + y
+        , let line = addr + fromIntegral y
         , (shiftR ((memory s) ! line) x) .&. 1 == 1]
+
+-- | Draws a sprite on the display and finds if there is a collision
+drawSprite :: VMState          -- ^ The VM state
+           -> Word16           -- ^ X coordinate to draw from
+           -> Word16           -- ^ Y coordinate to draw from
+           -> Word16           -- ^ The memory address of the sprite
+           -> Word             -- ^ The byte length of the sprite in memory
+           -> (VMState, Bool)  -- ^ The new state and if a collision occured
+drawSprite s x y addr n = (s { display = (display s) // display' }, collision)
+  where
+    sprite = map (\(xx, yy) -> (xx + x, yy + y)) $ getSprite s addr n
+    collides _ True = True
+    collides coord _ = not (boolXor ((display s) ! coord) True)
+    collision = foldr collides False sprite
+    display' = map (\coord -> (coord, True)) sprite
+
+-- | Performs a XOR bitwise operation on two boolean values
+boolXor :: Bool -> Bool -> Bool
+boolXor True True = False
+boolXor False False = False
+boolXor True False = True
+boolXor False True = True
 
 -- | Runs the next instruction on the VM state and returns the resulting state
 step :: VMState  -- ^ The starting state
