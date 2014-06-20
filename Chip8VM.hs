@@ -29,7 +29,7 @@ createVM :: [Word8]  -- ^ A byte array of the ROM to load
 createVM p = VMState { memory = listArray (0x0, 0xFFF) memContents
                      , pc = 0x200 -- CHIP-8 programs start here in memory
                      , i = 0x0
-                     , v = listArray (0, 16) []
+                     , v = listArray (0x0, 0xF) []
                      , display = listArray ((0,0),(63,31)) (repeat False) }
   where
     memContents = (replicate 0x200 (0x0 :: Word8)) ++ p
@@ -92,13 +92,15 @@ runInstruction s 0xD000 ops = s' { v = (v s) // [(0xF, collision')] }
     (s', collision) = drawSprite s vx vy (i s) n
     collision' = if collision then 1 else 0
 
+runInstruction s _ _ = s
+
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
 getSprite :: VMState             -- ^ The VM state
           -> Word16              -- ^ The memory address of the sprite
           -> Word                -- ^ The byte length of the sprite in memory
           -> [(Word16, Word16)]  -- ^ Pixel coordinates representing the sprite
 getSprite s addr n =
-    [(fromIntegral x, fromIntegral y)
+    [(fromIntegral x - 4, fromIntegral y) -- I have no idea why -4 is needed.
         | y <- range (0, n)
         , x <- [7,6..0]
         , let line = addr + fromIntegral y
