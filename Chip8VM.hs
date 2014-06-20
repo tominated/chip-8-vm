@@ -137,6 +137,13 @@ step s = runInstruction nextState opcode instruction
     opcode = instruction .&. 0xF000
     nextState = s { pc = (pc s) + 2 }
 
+-- | Returns a string representation of a VM state's display
+getDisplay :: VMState  -- ^ The VM state
+           -> String   -- ^ A string showing the display contents using ascii
+getDisplay s =
+    unlines [unwords [topixel ((display s) ! (x, y)) | x <- [0..63]] | y <- [0..31]]
+  where topixel = \x -> if x then "█" else " "
+
 -- | Steps through a program for each input
 stepLoop :: VMState -> IO ()
 stepLoop s = do
@@ -148,6 +155,8 @@ stepLoop s = do
 
     putStr "I: "
     print $ i s
+
+    putStr $ getDisplay s
 
     putStr "Press enter to step"
     hFlush stdout
