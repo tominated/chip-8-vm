@@ -85,7 +85,7 @@ runInstruction s 0xC000 ops = s { v = v' }
 runInstruction s 0xD000 ops = s' { v = (v s) // [(0xF, collision')] }
   where
     x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
-    y = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 4
+    y = fromIntegral $ shiftR (ops .&. 0x00F0) $ fromIntegral 4
     n = fromIntegral $ ops .&. 0x000F
     vx = fromIntegral $ (v s) ! x
     vy = fromIntegral $ (v s) ! y
@@ -141,8 +141,10 @@ step s = runInstruction nextState opcode instruction
 getDisplay :: VMState  -- ^ The VM state
            -> String   -- ^ A string showing the display contents using ascii
 getDisplay s =
-    unlines [unwords [topixel ((display s) ! (x, y)) | x <- [0..63]] | y <- [0..31]]
-  where topixel = \x -> if x then "█" else " "
+    unlines [unwords [toPixel ((display s) ! (x, y)) | x <- [0..63]] | y <- [0..31]]
+  where
+    toPixel True = "█"
+    toPixel False = " "
 
 -- | Steps through a program for each input
 stepLoop :: VMState -> IO ()
