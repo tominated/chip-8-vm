@@ -82,7 +82,15 @@ runInstruction s 0xC000 ops = s { v = v' }
     v' = (v s) // [(x, rand .&. kk)]
 
 -- 'Dxyn' - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
-runInstruction s 0xD000 ops = s
+runInstruction s 0xD000 ops = s' { v = (v s) // [(0xF, collision')] }
+  where
+    x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
+    y = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 4
+    n = fromIntegral $ ops .&. 0x000F
+    vx = fromIntegral $ (v s) ! x
+    vy = fromIntegral $ (v s) ! y
+    (s', collision) = drawSprite s vx vy (i s) n
+    collision' = if collision then 1 else 0
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
 getSprite :: VMState             -- ^ The VM state
