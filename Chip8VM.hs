@@ -13,6 +13,7 @@ import Data.Array.Unboxed
 import Data.Array.Base
 import qualified Data.ByteString as BS
 import System.IO
+import System.Random
 
 -- | Represents the state of a CHIP-8 VM at any given time
 data VMState = VMState
@@ -21,16 +22,19 @@ data VMState = VMState
     , i :: Word16                              -- ^ 16-bit register
     , v :: UArray Word16 Word8                 -- ^ 8-bit registers
     , display :: UArray (Word16, Word16) Bool  -- ^ Simulates a b/w display
+    , randGen :: StdGen                        -- ^ Generator for random nums
     } deriving (Show)
 
 -- | Creates a new VM state for a given program ROM
 createVM :: [Word8]  -- ^ A byte array of the ROM to load
+         -> StdGen   -- ^ A random number generator to use
          -> VMState  -- ^ A VM with the ROM in memory
-createVM p = VMState { memory = listArray (0x0, 0xFFF) memContents
-                     , pc = 0x200 -- CHIP-8 programs start here in memory
-                     , i = 0x0
-                     , v = listArray (0x0, 0xF) []
-                     , display = listArray ((0,0),(63,31)) (repeat False) }
+createVM p g = VMState { memory = listArray (0x0, 0xFFF) memContents
+                       , pc = 0x200 -- CHIP-8 programs start here in memory
+                       , i = 0x0
+                       , v = listArray (0x0, 0xF) []
+                       , display = listArray ((0,0),(63,31)) (repeat False)
+                       , randGen = g }
   where
     memContents = (replicate 0x200 (0x0 :: Word8)) ++ p
 
@@ -74,11 +78,11 @@ runInstruction s 0xA000 ops = s { i = fromIntegral nnn }
     nnn = ops .&. 0x0FFF
 
 -- 'Cxkk' - Set Vx = random byte AND kk
-runInstruction s 0xC000 ops = s { v = v' }
+runInstruction s 0xC000 ops = s { v = v', randGen = randGen' }
   where
     x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
     kk = fromIntegral $ ops .&. 0x00FF
-    rand = 9 -- http://dilbert.com/strips/comic/2001-10-25/
+    (rand, randGen') = randomR (0x0, 0xFF) (randGen s)
     v' = (v s) // [(x, rand .&. kk)]
 
 -- 'Dxyn' - Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
@@ -115,7 +119,9 @@ drawSprite :: VMState          -- ^ The VM state
            -> (VMState, Bool)  -- ^ The new state and if a collision occured
 drawSprite s x y addr n = (s { display = (display s) // display' }, collision)
   where
-    sprite = map (\(xx, yy) -> (xx + x, yy + y)) $ getSprite s addr n
+    addOffset (sx, sy) = (sx + x, sy + y)
+    inBounds (x, y) = (x >= 0 && x < 64) && (y >= 0 && y < 32)
+    sprite = filter inBounds $ map addOffset $ getSprite s addr n
     collides _ True = True
     collides coord _ = not (boolXor ((display s) ! coord) True)
     collision = foldr collides False sprite
@@ -170,5 +176,6 @@ stepLoop s = do
 main :: IO ()
 main = do
     program <- BS.readFile "roms/MAZE"
-    let vm = createVM $ BS.unpack program
+    randGen <- newStdGen
+    let vm = createVM (BS.unpack program) randGen
     stepLoop vm
