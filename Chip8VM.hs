@@ -21,6 +21,7 @@ data VMState = VMState
     , pc :: Word16                             -- ^ Program counter
     , i :: Word16                              -- ^ 16-bit register
     , v :: UArray Word16 Word8                 -- ^ 8-bit registers
+    , stack :: [Word16]                        -- ^ The call stack
     , display :: UArray (Word16, Word16) Bool  -- ^ Simulates a b/w display
     , randGen :: StdGen                        -- ^ Generator for random nums
     } deriving (Show)
@@ -33,6 +34,7 @@ createVM p g = VMState { memory = listArray (0x0, 0xFFF) memContents
                        , pc = 0x200 -- CHIP-8 programs start here in memory
                        , i = 0x0
                        , v = listArray (0x0, 0xF) []
+                       , stack = []
                        , display = listArray ((0,0),(63,31)) (repeat False)
                        , randGen = g }
   where
@@ -44,9 +46,27 @@ runInstruction :: VMState  -- ^ The starting state
                -> Word     -- ^ The instruction operands
                -> VMState  -- ^ The manipulated state
 
+-- '0000' - Multiple instructions
+runInstruction s 0x0000 ops = runOp ops
+  where
+    -- Clear screen
+    runOp 0x00E0 = s { display = listArray ((0,0),(63,31)) (repeat False) }
+    runOp 0x00EE = s { pc = pc', stack = stack' }
+      where
+        (pc' : stack') = stack s
+
 -- '1nnn' - Jump to location nnn
 runInstruction s 0x1000 ops =
-  s { pc = fromIntegral $ ops .&. 0x0FFF}
+    s { pc = nnn }
+  where
+    nnn = fromIntegral $ ops .&. 0x0FFF
+
+-- '2nnn' - Call subroutine at location nnn
+runInstruction s 0x2000 ops =
+    s { pc = nnn, stack = stack' }
+  where
+    nnn = fromIntegral $ ops .&. 0x0FFF
+    stack' = nnn : (stack s)
 
 -- '3xkk' - Skip to next instruction if Vx == kk
 runInstruction s 0x3000 ops = if vx == kk
