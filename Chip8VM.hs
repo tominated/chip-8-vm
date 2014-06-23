@@ -14,6 +14,7 @@ import Data.Array.Base
 import qualified Data.ByteString as BS
 import System.IO
 import System.Random
+import Numeric (showHex)
 
 -- | Represents the state of a CHIP-8 VM at any given time
 data VMState = VMState
@@ -40,6 +41,14 @@ createVM p g = VMState { memory = listArray (0x0, 0xFFF) memContents
   where
     memContents = (replicate 0x200 (0x0 :: Word8)) ++ p
 
+nextInstruction :: VMState  -- ^ The starting state
+                -> Word     -- ^ The next instruction to run
+nextInstruction VMState { pc = pc, memory = memory } =
+    (shiftL b1 8) + b2
+  where
+    b1 = fromIntegral $ memory ! pc       -- First byte in instruction
+    b2 = fromIntegral $ memory ! (pc + 1) -- Second byte in instruction
+
 -- | Runs a cpu instruction on VM state and returns the resulting state
 runInstruction :: VMState  -- ^ The starting state
                -> Word     -- ^ The instruction opcode
@@ -51,6 +60,8 @@ runInstruction s 0x0000 ops = runOp ops
   where
     -- Clear screen
     runOp 0x00E0 = s { display = listArray ((0,0),(63,31)) (repeat False) }
+
+    -- Return from subroutine
     runOp 0x00EE = s { pc = pc', stack = stack' }
       where
         (pc' : stack') = stack s
@@ -66,10 +77,19 @@ runInstruction s 0x2000 ops =
     s { pc = nnn, stack = stack' }
   where
     nnn = fromIntegral $ ops .&. 0x0FFF
-    stack' = nnn : (stack s)
+    stack' = (pc s) : (stack s)
 
 -- '3xkk' - Skip to next instruction if Vx == kk
 runInstruction s 0x3000 ops = if vx == kk
+                              then s { pc = (pc s) + 2 }
+                              else s
+  where
+    x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
+    kk = ops .&. 0x00FF
+    vx = fromIntegral $ (v s) ! x
+
+-- '4xkk' - Skip next instruction if Vx != kk
+runInstruction s 0x4000 ops = if vx /= kk
                               then s { pc = (pc s) + 2 }
                               else s
   where
@@ -116,6 +136,12 @@ runInstruction s 0xD000 ops = s' { v = (v s) // [(0xF, collision')] }
     (s', collision) = drawSprite s vx vy (i s) n
     collision' = if collision then 1 else 0
 
+-- Naive implementation
+runInstruction s 0xF000 ops = s { i = (i s) + vx }
+  where
+    x = fromIntegral $ shiftR (ops .&. 0x0F00) $ fromIntegral 8
+    vx = fromIntegral $ (v s) ! x
+
 runInstruction s _ _ = s
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
@@ -157,13 +183,13 @@ boolXor False True = True
 -- | Runs the next instruction on the VM state and returns the resulting state
 step :: VMState  -- ^ The starting state
      -> VMState  -- ^ The stepped through state
-step s = runInstruction nextState opcode instruction
+step s@VMState { pc = pc, memory = memory } = runInstruction s' op instr
   where
-    b1 = fromIntegral $ (memory s) ! (pc s) :: Word -- First byte in instruction
-    b2 = fromIntegral $ (memory s) ! ((pc s) + 1) :: Word -- Second byte in instruction
-    instruction = (shiftL b1 8) + b2
-    opcode = instruction .&. 0xF000
-    nextState = s { pc = (pc s) + 2 }
+    b1 = fromIntegral $ memory ! pc :: Word -- First byte in instruction
+    b2 = fromIntegral $ memory ! (pc + 1) :: Word -- Second byte in instruction
+    instr = (shiftL b1 8) + b2
+    op = instr .&. 0xF000
+    s' = s { pc = pc + 2 }
 
 -- | Returns a string representation of a VM state's display
 getDisplay :: VMState  -- ^ The VM state
@@ -178,13 +204,19 @@ getDisplay s =
 stepLoop :: VMState -> IO ()
 stepLoop s = do
     putStr "PC: "
-    print $ pc s
+    putStrLn $ showHex (pc s) ""
+
+    putStr "Instruction: "
+    putStrLn $ showHex (nextInstruction s) ""
 
     putStr "V: "
     print $ v s
 
     putStr "I: "
     print $ i s
+
+    putStr "Stack: "
+    print $ stack s
 
     putStr $ getDisplay s
 
@@ -195,7 +227,7 @@ stepLoop s = do
 
 main :: IO ()
 main = do
-    program <- BS.readFile "roms/MAZE"
+    program <- BS.readFile "roms/LOGO"
     randGen <- newStdGen
     let vm = createVM (BS.unpack program) randGen
     stepLoop vm
