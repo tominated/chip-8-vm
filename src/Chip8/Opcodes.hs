@@ -166,17 +166,16 @@ opFX1E s@VMState { v = v } op =
     vx = v ! (iX op)
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
---   NOTE: For some reason the sprite currently loads flipped horizontally.
 getSprite :: VMState         -- ^ The VM state
           -> Word            -- ^ The memory address of the sprite
           -> Word            -- ^ The byte length of the sprite in memory
           -> [(Word, Word)]  -- ^ Pixel coordinates representing the sprite
 getSprite s addr n =
-    [(fromIntegral x - 4, fromIntegral y)
+    [(fromIntegral x, fromIntegral y)
         | y <- range (0, n - 1)
         , x <- [0,1..7]
-        , let line = addr + y
-        , (shiftR ((memory s) ! line) x) .&. 1 == 1]
+        , let shift = 7 - x -- This prevents the sprite from being flipped
+        , (shiftR ((memory s) ! (addr + y)) shift) .&. 1 == 1]
 
 -- | Draws a sprite on the display and finds if there is a collision
 drawSprite :: VMState          -- ^ The VM state
