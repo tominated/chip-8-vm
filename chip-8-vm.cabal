@@ -3,18 +3,13 @@
 
 name:                chip-8-vm
 version:             0.1.0.0
--- synopsis:
--- description:
--- license:
+synopsis:            CHIP-8 Emulator
+description:         A rudimentary CHIP-8 emulator for learning haskell
 license-file:        LICENSE
--- author:
--- maintainer:
--- copyright:
--- category:
+author:              Tom Brunoli
+maintainer:          Tom Brunoli <tom@tombrunoli.com>
 build-type:          Simple
 cabal-version:       >=1.8
-
 executable chip-8-vm
-  -- main-is:             Chip8VM.hs
-  -- other-modules:
-  build-depends:       base ==4.6.*
+main-is:             src/Chip8.hs
+build-depends:       base ==4.6.*
