@@ -166,33 +166,36 @@ opFX1E s@VMState { v = v } op =
     vx = v ! (iX op)
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
-getSprite :: VMState             -- ^ The VM state
-          -> Word              -- ^ The memory address of the sprite
-          -> Word                -- ^ The byte length of the sprite in memory
+getSprite :: VMState         -- ^ The VM state
+          -> Word            -- ^ The memory address of the sprite
+          -> Word            -- ^ The byte length of the sprite in memory
           -> [(Word, Word)]  -- ^ Pixel coordinates representing the sprite
 getSprite s addr n =
     [(fromIntegral x - 4, fromIntegral y)
-        | y <- range (0, n)
-        , x <- [7,6..0]
+        | y <- range (0, n - 1)
+        , x <- [0,1..7]
         , let line = addr + y
         , (shiftR ((memory s) ! line) x) .&. 1 == 1]
 
 -- | Draws a sprite on the display and finds if there is a collision
 drawSprite :: VMState          -- ^ The VM state
-           -> Word           -- ^ X coordinate to draw from
-           -> Word           -- ^ Y coordinate to draw from
-           -> Word           -- ^ The memory address of the sprite
+           -> Word             -- ^ X coordinate to draw from
+           -> Word             -- ^ Y coordinate to draw from
+           -> Word             -- ^ The memory address of the sprite
            -> Word             -- ^ The byte length of the sprite in memory
            -> (Bool, VMState)  -- ^ The new state and if a collision occured
-drawSprite s x y addr n =
-    (collision, s { display = (display s) // display' })
+drawSprite s@VMState { display = display } x y addr n =
+    (collision, s { display = display // display' })
   where
+    -- Adds the x,y offset to the relative pixel co-ordinate
     addOffset (sx, sy) = (sx + x, sy + y)
+    -- Checks if the pixel co-ordinate is within the display bounds
     inBounds (x, y) = (x >= 0 && x < 64) && (y >= 0 && y < 32)
+    -- Gets the sprite's relative pixels, adds offsets and filters out of bounds
     sprite = filter inBounds $ map addOffset $ getSprite s addr n
-    collides _ True = True
-    collides coord _ = not (boolXor ((display s) ! coord) True)
-    collision = foldr collides False sprite
+    -- Checks if any sprite pixels collide with existing displayed pixels
+    collision = any (\c -> not (boolXor (display ! c) True)) sprite
+    -- Generates the list of changed array values for the display
     display' = map (\coord -> (coord, True)) sprite
 
 -- | Performs a XOR bitwise operation on two boolean values
