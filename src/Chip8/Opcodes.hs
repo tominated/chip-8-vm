@@ -166,6 +166,7 @@ opFX1E s@VMState { v = v } op =
     vx = v ! (iX op)
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
+--   NOTE: For some reason the sprite currently loads flipped horizontally.
 getSprite :: VMState         -- ^ The VM state
           -> Word            -- ^ The memory address of the sprite
           -> Word            -- ^ The byte length of the sprite in memory
