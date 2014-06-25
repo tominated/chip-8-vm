@@ -1,13 +1,9 @@
 module Main where
 
-import Data.Word
-import Data.Bits
-import Data.Bool
-import Data.Array.Unboxed
 import Data.Array.Base
 import qualified Data.ByteString as BS
 import System.IO
-import System.Random
+import System.Random (newStdGen)
 import Numeric (showHex)
 
 import Graphics.Gloss.Data.Picture
@@ -69,9 +65,9 @@ run s@VMState { pc = pc } = do
 
 drawScreen :: VMState -> Picture
 drawScreen s@VMState { display = d } =
-    Scale 1 (-1) $
-    Translate (-320) (-160) $
-    Pictures [ Color white (Translate x' y' pixel)
+    scale 1 (-1) $
+    translate (-320) (-160) $
+    pictures [ color white (translate x' y' pixel)
         | x <- [0,1..63]
         , y <- [0,1..31]
         , let x' = fromIntegral (x * 10)
