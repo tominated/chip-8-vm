@@ -47,9 +47,25 @@ stepLoop s@VMState { pc = pc, v = v, i = i, stack = stack} = do
     getLine
     stepLoop $ step s
 
+-- | Runs a program until it loops indefinitely
+run :: VMState -> IO ()
+run s@VMState { pc = pc } = do
+    -- Print the current display
+    putStr $ showDisplay s
+    hFlush stdout
+
+    -- Run the next instruction
+    let s'@VMState { pc = pc' } = step s
+
+    -- If the program counter hasn't changed, then
+    if pc == pc'
+    then return ()
+    else run s'
+
 main :: IO ()
 main = do
-    program <- BS.readFile "./roms/LOGO"
+    program <- BS.readFile "./roms/MAZE"
     randGen <- newStdGen
     let vm = create (BS.unpack program) randGen
-    stepLoop vm
+    run vm
+    putStrLn "Program finished executing"
