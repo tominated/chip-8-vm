@@ -1,4 +1,4 @@
-module Chip8 where
+module Main where
 
 import Data.Word
 import Data.Bits
@@ -49,7 +49,7 @@ stepLoop s@VMState { pc = pc, v = v, i = i, stack = stack} = do
 
 main :: IO ()
 main = do
-    program <- BS.readFile "../roms/LOGO"
+    program <- BS.readFile "./roms/LOGO"
     randGen <- newStdGen
     let vm = create (BS.unpack program) randGen
     stepLoop vm
