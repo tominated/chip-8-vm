@@ -83,7 +83,7 @@ runGraphical state =
   where
     handleInput _ s = s
     step' _ = step
-    window = (InWindow "CHIP-8" (660, 340) (10, 10))
+    window = InWindow "CHIP-8" (660, 340) (10, 10)
 
 main :: IO ()
 main = do

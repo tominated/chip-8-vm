@@ -17,8 +17,8 @@ runInstruction :: VMState  -- ^ Initial CPU state
                -> VMState  -- ^ Resulting CPU state
 runInstruction s operands = op s operands
   where
-    op = case (operands .&. 0xF000) of
-      0x0000 -> case (operands .&. 0xF) of
+    op = case operands .&. 0xF000 of
+      0x0000 -> case operands .&. 0xF of
         0x0000 -> op00E0
         0x000E -> op00EE
       0x1000 -> op1NNN
@@ -89,22 +89,22 @@ op3XKK :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op3XKK s@VMState { pc = pc, v = v } op =
-    if vx == (iKK op)
+    if vx == iKK op
     then s { pc = pc + 2 }
     else s
   where
-    vx = v ! (iX op)
+    vx = v ! iX op
 
 -- | Skip next instruction if VX != KK
 op4XKK :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op4XKK s@VMState { pc = pc, v = v } op =
-    if vx /= (iKK op)
+    if vx /= iKK op
     then s { pc = pc + 2 }
     else s
   where
-    vx = v ! (iX op)
+    vx = v ! iX op
 
 -- | Set VX = KK
 op6XKK :: VMState  -- ^ Initial CPU state
@@ -122,8 +122,8 @@ op7XKK :: VMState  -- ^ Initial CPU state
 op7XKK s@VMState { v = v } op =
     s { v = v' }
   where
-    vx = v ! (iX op)
-    v' = v // [(iX op, vx + (iKK op))]
+    vx = v ! iX op
+    v' = v // [(iX op, vx + iKK op)]
 
 -- | Set i = NNN
 opANNN :: VMState  -- ^ Initial CPU state
@@ -140,7 +140,7 @@ opCXKK s@VMState { v = v, randGen = randGen } op =
     s { v = v', randGen = randGen' }
   where
     (r, randGen') = randomR (0x0, 0xFF) randGen
-    v' = v // [(iX op, r .&. (iKK op))]
+    v' = v // [(iX op, r .&. iKK op)]
 
 -- | Paint N byte long sprite starting at location I at (VX, VY)
 --   Also set VF = collision
@@ -150,8 +150,8 @@ opDXYN :: VMState  -- ^ Initial CPU state
 opDXYN s@VMState { v = v, i = i } op =
     s' { v = v' }
   where
-    vx = v ! (iX op)
-    vy = v ! (iY op)
+    vx = v ! iX op
+    vy = v ! iY op
     (collision, s') = drawSprite s vx vy i (iN op)
     collision' = if collision then 1 else 0
     v' = v // [(0xF, collision')]
@@ -160,10 +160,10 @@ opDXYN s@VMState { v = v, i = i } op =
 opFX1E :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-opFX1E s@VMState { v = v } op =
-    s { i = (i s) + vx }
+opFX1E s@VMState { v = v, i = i } op =
+    s { i = i + vx }
   where
-    vx = v ! (iX op)
+    vx = v ! iX op
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
 getSprite :: VMState         -- ^ The VM state
@@ -175,7 +175,7 @@ getSprite s addr n =
         | y <- range (0, n - 1)
         , x <- [0,1..7]
         , let shift = 7 - x -- This prevents the sprite from being flipped
-        , (shiftR ((memory s) ! (addr + y)) shift) .&. 1 == 1]
+        , shiftR (memory s ! (addr + y)) shift .&. 1 == 1]
 
 -- | Draws a sprite on the display and finds if there is a collision
 drawSprite :: VMState          -- ^ The VM state

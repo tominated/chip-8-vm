@@ -35,13 +35,13 @@ create p g = VMState { memory = listArray (0x0, 0xFFF) memContents
                      , display = listArray ((0,0),(63,31)) (repeat False)
                      , randGen = g }
   where
-    memContents = (replicate 0x200 0x0) ++ map fromIntegral p
+    memContents = replicate 0x200 0x0 ++ map fromIntegral p
 
 -- | Retrieves the next CPU instruction for the a vm
 nextInstruction :: VMState  -- ^ The starting state
                 -> Word     -- ^ The next instruction to run
 nextInstruction VMState { pc = pc, memory = memory } =
-    (shiftL b1 8) + b2
+    shiftL b1 8 + b2
   where
     b1 = fromIntegral $ memory ! pc       -- First byte in instruction
     b2 = fromIntegral $ memory ! (pc + 1) -- Second byte in instruction
@@ -50,7 +50,7 @@ nextInstruction VMState { pc = pc, memory = memory } =
 showDisplay :: VMState  -- ^ The VM state
             -> String   -- ^ A string showing the display contents using ascii
 showDisplay s =
-    unlines [unwords [toPixel ((display s) ! (x, y)) | x <- [0..63]] | y <- [0..31]]
+    unlines [unwords [toPixel (display s ! (x, y)) | x <- [0..63]] | y <- [0..31]]
   where
     toPixel True = "█"
     toPixel False = " "
