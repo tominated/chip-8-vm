@@ -13,7 +13,7 @@ import Numeric (showHex)
 import Graphics.Gloss.Data.Picture
 import Graphics.Gloss.Data.Color (black, white)
 import Graphics.Gloss.Data.Display
-import Graphics.Gloss.Interface.IO.Game
+import Graphics.Gloss.Interface.Pure.Game
 
 import Chip8.State (VMState(..), create, nextInstruction, showDisplay)
 import Chip8.Opcodes (runInstruction)
@@ -67,31 +67,26 @@ run s@VMState { pc = pc } = do
     then return ()
     else run s'
 
-drawScreen :: VMState -> IO Picture
+drawScreen :: VMState -> Picture
 drawScreen s@VMState { display = d } =
-    return $
-        Scale 1 (-1) $
-        Translate (-320) (-160) $
-        Pictures [ Color white (Translate x' y' pixel)
-            | x <- [0,1..63]
-            , y <- [0,1..31]
-            , let x' = fromIntegral (x * 10)
-            , let y' = fromIntegral (y * 10)
-            , d ! (x, y) ]
+    Scale 1 (-1) $
+    Translate (-320) (-160) $
+    Pictures [ Color white (Translate x' y' pixel)
+        | x <- [0,1..63]
+        , y <- [0,1..31]
+        , let x' = fromIntegral (x * 10)
+        , let y' = fromIntegral (y * 10)
+        , d ! (x, y) ]
   where
     pixel = rectangleSolid 10 10
-
-handleInput :: Event -> VMState -> IO VMState
-handleInput e s = return s
-
-step' :: Float -> VMState -> IO VMState
-step' _ s = return $ step s
 
 -- | Runs the programs with real(tm) graphics!
 runGraphical :: VMState -> IO ()
 runGraphical state =
-    playIO window black 100 state drawScreen handleInput step'
+    play window black 100 state drawScreen handleInput step'
   where
+    handleInput _ s = s
+    step' _ = step
     window = (InWindow "CHIP-8" (660, 340) (10, 10))
 
 main :: IO ()
