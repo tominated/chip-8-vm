@@ -39,9 +39,16 @@ drawScreen s@VMState { display = d } =
     pixel = rectangleSolid 10 10
 
 -- | Runs the programs with real(tm) graphics!
-runGraphical :: VMState -> IO ()
-runGraphical state =
-    play window black 100 state drawScreen handleInput step'
+run :: VMState -> IO ()
+run state =
+    play
+        window       -- Window info
+        black        -- Background colour
+        100          -- Steps per second (100Hz)
+        state        -- Starting state
+        drawScreen   -- Display generating function
+        handleInput  -- Input handling function
+        step'        -- State stepping function
   where
     handleInput _ s = s
     step' _ = step
@@ -51,5 +58,4 @@ main :: IO ()
 main = do
     program <- BS.readFile "./roms/LOGO"
     randGen <- newStdGen
-    let vm = create (BS.unpack program) randGen
-    runGraphical vm
+    run $ create (BS.unpack program) randGen
