@@ -27,7 +27,19 @@ runInstruction s operands = op s operands
       0x4000 -> op4XKK
       0x6000 -> op6XKK
       0x7000 -> op7XKK
+      0x8000 -> case operands .&. 0x000F of
+        0x0000 -> op8XY0
+        0x0001 -> op8XY1
+        0x0002 -> op8XY2
+        0x0003 -> op8XY3
+        0x0004 -> op8XY4
+        0x0005 -> op8XY5
+        0x0006 -> op8XY6
+        0x0007 -> op8XY7
+        0x000E -> op8XYE
+      0x9000 -> op9XY0
       0xA000 -> opANNN
+      0xB000 -> opBNNN
       0xC000 -> opCXKK
       0xD000 -> opDXYN
       0xF000 -> opFX1E
@@ -106,6 +118,18 @@ op4XKK s@VMState { pc = pc, v = v } op =
   where
     vx = v ! iX op
 
+-- | Skip next instruction if VX == VY
+op5XY0 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op5XY0 s@VMState { pc = pc, v = v } op =
+    if vx == vy
+    then s { pc = pc + 2 }
+    else s
+  where
+    vx = v ! iX op
+    vy = v ! iY op
+
 -- | Set VX = KK
 op6XKK :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
@@ -125,12 +149,137 @@ op7XKK s@VMState { v = v } op =
     vx = v ! iX op
     v' = v // [(iX op, vx + iKK op)]
 
+-- | Set VX to VY
+op8XY0 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XY0 s@VMState { v = v } op =
+    s { v = v // [(iX op, vy)] }
+  where
+    vy = v ! iY op
+
+-- | Set VX to VX OR VY
+op8XY1 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XY1 s@VMState { v = v } op =
+    s { v = v // [(iX op, vx .|. vy)] }
+  where
+    vx = v ! iX op
+    vy = v ! iY op
+
+-- | Set VX to VX AND VY
+op8XY2 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XY2 s@VMState { v = v } op =
+    s { v = v // [(iX op, vx .&. vy)] }
+  where
+    vx = v ! iX op
+    vy = v ! iY op
+
+-- | Set VX to VX XOR XY
+op8XY3 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XY3 s@VMState { v = v } op =
+    s { v = v // [(iX op, vx `xor` vy)] }
+  where
+    vx = v ! iX op
+    vy = v ! iY op
+
+-- | Add VY to VX. Set VF to 1 when there is a carry, or 0 if not
+op8XY4 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XY4 s@VMState { v = v } op =
+    s { v = v' }
+  where
+    vx = iX op
+    vy = iY op
+    result = vx + vy
+    carry = if result > 255 then 1 else 0
+    v' = v // [(vx, result .&. 0xFF), (0xF, carry)]
+
+-- | Set VX to VX - VY. Set VF to 0 when there is a borrow, or 1 if not
+op8XY5 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XY5 s@VMState { v = v } op =
+    s { v = v' }
+  where
+    vx = iX op
+    vy = iY op
+    result = vx - vy
+    borrow = if vx < vy then 1 else 0
+    v' = v // [(vx, result), (0xF, borrow)]
+
+-- | Shift VX right by 1.
+--   VF is set to the least significant bit before the shift
+op8XY6 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XY6 s@VMState { v = v } op =
+    s { v = v' }
+  where
+    vx = iX op
+    leastSignificant = vx .&. 0x1
+    result = shiftR vx 1
+    v' = v // [(vx, result), (0xF, leastSignificant)]
+
+-- | Set VX to VY - VX. Set VF to 0 when there is a borrow, or 1 if not
+op8XY7 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XY7 s@VMState { v = v } op =
+    s { v = v' }
+  where
+    vx = iX op
+    vy = iY op
+    result = vy - vx
+    borrow = if vy < vx then 0 else 1
+    v' = v // [(vx, result), (0xF, borrow)]
+
+-- | Shift VX left by 1
+--   VF is set to the most significant bit before the shift
+op8XYE :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op8XYE s@VMState { v = v } op =
+    s { v = v' }
+  where
+    vx = iX op
+    mostSignificant = shiftR vx 7
+    result = shiftL vx 1
+    v' = v // [(vx, result), (0xF, mostSignificant)]
+
+-- | Skip next instruction if VX != VY
+op9XY0 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+op9XY0 s@VMState { pc = pc, v = v } op =
+    if vx /= vy
+    then s { pc = pc + 2 }
+    else s
+  where
+    vx = v ! iX op
+    vy = v ! iY op
+
 -- | Set i = NNN
 opANNN :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opANNN s op =
     s { i = iNNN op }
+
+-- | Jump to location NNN + V0
+opBNNN :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opBNNN s@VMState { pc = pc, v = v } op =
+    s { pc = pc + iNNN op + v0 }
+  where
+    v0 = v ! 0x0
 
 -- | Set VX = (random byte) & KK
 opCXKK :: VMState  -- ^ Initial CPU state
