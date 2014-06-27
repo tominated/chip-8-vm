@@ -67,7 +67,9 @@ drawScreen :: VMState -> Picture
 drawScreen s@VMState { display = d } =
     scale 1 (-1) $
     translate (-320) (-160) $
-    pictures [ color white (translate x' y' pixel)
+    color white $
+    pictures $
+    [(translate x' y' pixel)
         | x <- [0,1..63]
         , y <- [0,1..31]
         , let x' = fromIntegral (x * 10)
