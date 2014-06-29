@@ -409,10 +409,10 @@ opFX55 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX55 s@VMState { v = v, i = i, memory = memory } op =
-    s { memory = memory // memory' }
+    s { i = i', memory = memory // memory' }
   where
-    vx = v ! iX op
-    v0x = [v ! x | x <- range (0, vx)]
+    i' = i + (iX op) + 1
+    v0x = [v ! x | x <- range (0, iX op)]
     memory' = [(fromIntegral l, vy) | vy <- v0x
                                     , l <- range (fromIntegral i, length v0x)]
 
@@ -421,11 +421,11 @@ opFX65 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX65 s@VMState { v = v, i = i, memory = memory } op =
-    s { v = v // v' }
+    s { i = i',  v = v // v' }
   where
-    vx = v ! iX op
-    mem = [memory ! x | x <- range (i, i + vx)]
-    v' = [(vi, ii) | vi <- range (0, vx), ii <- mem]
+    i' = i + (iX op) + 1
+    mem = [memory ! x | x <- range (i, i + (iX op))]
+    v' = [(vi, ii) | vi <- range (0, (iX op)), ii <- mem]
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
 getSprite :: VMState         -- ^ The VM state
