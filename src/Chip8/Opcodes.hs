@@ -53,6 +53,10 @@ runInstruction s operands = op s operands
             0x15 -> opFX15
             0x18 -> opFX18
             0x1E -> opFX1E
+            0x29 -> opFX29
+            0x33 -> opFX33
+            0x55 -> opFX55
+            0x65 -> opFX65
 
 -- | Get the NNN value from an instruction
 iNNN :: Word -> Word
@@ -373,6 +377,52 @@ opFX1E s@VMState { v = v, i = i } op =
     s { i = i + vx }
   where
     vx = v ! iX op
+
+-- | Set I to the location of the sprite for the character in VX
+opFX29 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opFX29 s@VMState { v = v } op =
+    s { i = i' }
+  where
+    vx = v ! iX op
+    i' = vx * 5 -- Character sprites are 5 bytes long and start at 0
+
+-- | Store BCD of VX at I, I+1 and I+2
+opFX33 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opFX33 s@VMState { v = v, i = i, memory = memory } op =
+    s { memory = memory // bcd }
+  where
+    vx = v ! iX op
+    ones = vx `mod` 10
+    tens = (vx `div` 10) `mod` 10
+    hundreds = (vx `div` 100) `mod` 10
+    bcd = [(i, hundreds), (i + 1, tens), (i + 2, ones)]
+
+-- | Store V0 to VX in memory starting at address I
+opFX55 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opFX55 s@VMState { v = v, i = i, memory = memory } op =
+    s { memory = memory // memory' }
+  where
+    vx = v ! iX op
+    v0x = [v ! x | x <- range (0, vx)]
+    memory' = [(fromIntegral l, vy) | vy <- v0x
+                                    , l <- range (fromIntegral i, length v0x)]
+
+-- | Store memory in V0 to VX starting from I
+opFX65 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opFX65 s@VMState { v = v, i = i, memory = memory } op =
+    s { v = v // v' }
+  where
+    vx = v ! iX op
+    mem = [memory ! x | x <- range (i, i + vx)]
+    v' = [(vi, ii) | vi <- range (0, vx), ii <- mem]
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
 getSprite :: VMState         -- ^ The VM state
