@@ -6,8 +6,10 @@ module Chip8.Opcodes
 import Data.Word
 import Data.Bits
 import Data.Bool
+import Data.Char
 import Data.Array.Unboxed
 import Data.Array.Base
+import qualified Data.Set as S
 import System.Random
 
 import Chip8.State (VMState(..))
@@ -18,31 +20,39 @@ runInstruction :: VMState  -- ^ Initial CPU state
 runInstruction s operands = op s operands
   where
     op = case operands .&. 0xF000 of
-      0x0000 -> case operands .&. 0xF of
-        0x0000 -> op00E0
-        0x000E -> op00EE
-      0x1000 -> op1NNN
-      0x2000 -> op2NNN
-      0x3000 -> op3XKK
-      0x4000 -> op4XKK
-      0x6000 -> op6XKK
-      0x7000 -> op7XKK
-      0x8000 -> case operands .&. 0x000F of
-        0x0000 -> op8XY0
-        0x0001 -> op8XY1
-        0x0002 -> op8XY2
-        0x0003 -> op8XY3
-        0x0004 -> op8XY4
-        0x0005 -> op8XY5
-        0x0006 -> op8XY6
-        0x0007 -> op8XY7
-        0x000E -> op8XYE
-      0x9000 -> op9XY0
-      0xA000 -> opANNN
-      0xB000 -> opBNNN
-      0xC000 -> opCXKK
-      0xD000 -> opDXYN
-      0xF000 -> opFX1E
+        0x0000 -> case operands .&. 0xF of
+            0x0 -> op00E0
+            0xE -> op00EE
+        0x1000 -> op1NNN
+        0x2000 -> op2NNN
+        0x3000 -> op3XKK
+        0x4000 -> op4XKK
+        0x6000 -> op6XKK
+        0x7000 -> op7XKK
+        0x8000 -> case operands .&. 0xF of
+            0x0 -> op8XY0
+            0x1 -> op8XY1
+            0x2 -> op8XY2
+            0x3 -> op8XY3
+            0x4 -> op8XY4
+            0x5 -> op8XY5
+            0x6 -> op8XY6
+            0x7 -> op8XY7
+            0xE -> op8XYE
+        0x9000 -> op9XY0
+        0xA000 -> opANNN
+        0xB000 -> opBNNN
+        0xC000 -> opCXKK
+        0xD000 -> opDXYN
+        0xE000 -> case operands .&. 0xFF of
+            0x9E -> opEX9E
+            0xA1 -> opEXA1
+        0xF000 -> case operands .&. 0xFF of
+            0x07 -> opFX07
+            0x0A -> opFX0A
+            0x15 -> opFX15
+            0x18 -> opFX18
+            0x1E -> opFX1E
 
 -- | Get the NNN value from an instruction
 iNNN :: Word -> Word
@@ -69,7 +79,7 @@ op00E0 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op00E0 s op =
-    s
+    s { display = listArray ((0,0),(63,31)) (repeat False) }
 
 -- | Return from subroutine
 op00EE :: VMState  -- ^ Initial CPU state
@@ -304,6 +314,56 @@ opDXYN s@VMState { v = v, i = i } op =
     (collision, s') = drawSprite s vx vy i (iN op)
     collision' = if collision then 1 else 0
     v' = v // [(0xF, collision')]
+
+-- | Skip next instruction if key VX is pressed
+opEX9E :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opEX9E s@VMState { pc = pc, v = v, pressed = pressed } op =
+    if pressed' then s { pc = pc + 2 } else s
+  where
+    vx = v ! iX op
+    pressed' = S.member (fromIntegral vx) pressed
+
+-- | Skip next instruction if key VX is up
+opEXA1 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opEXA1 s@VMState { pc = pc, v = v, pressed = pressed } op =
+    if up then s { pc = pc + 2 } else s
+  where
+    vx = v ! iX op
+    up = S.notMember (fromIntegral vx) pressed
+
+-- | Set VX to the value of the delay timer
+opFX07 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opFX07 s@VMState { v = v, delayTimer = delayTimer } op =
+    s { v = v' }
+  where
+    v' = v // [(iX op, fromIntegral delayTimer)]
+
+-- | Wait for keypress then store in VX
+opFX0A :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opFX0A s op = s
+
+-- | Set delay timer to VX
+opFX15 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opFX15 s@VMState { v = v } op =
+    s { delayTimer = vx }
+  where
+    vx = v ! iX op
+
+-- | Set sound timer to VX
+opFX18 :: VMState  -- ^ Initial CPU state
+       -> Word     -- ^ Full CPU instruction
+       -> VMState  -- ^ Resulting CPU state
+opFX18 s op = s
 
 -- | Set op = I + VX
 opFX1E :: VMState  -- ^ Initial CPU state

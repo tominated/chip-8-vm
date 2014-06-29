@@ -10,6 +10,7 @@ import Data.Word
 import Data.Bits
 import Data.Array.Unboxed
 import Data.Array.Base
+import qualified Data.Set as S
 import System.Random
 
 -- | Represents the state of a CHIP-8 VM at any given time
@@ -20,6 +21,8 @@ data VMState = VMState
     , v :: UArray Word Word                -- ^ 8-bit registers
     , stack :: [Word]                      -- ^ The call stack
     , display :: UArray (Word, Word) Bool  -- ^ Simulates a b/w display
+    , pressed :: S.Set Int                 -- ^ Set of currently pressed keys
+    , delayTimer :: Word                   -- ^ The delay timer wait value
     , randGen :: StdGen                    -- ^ Generator for random nums
     } deriving (Show)
 
@@ -33,6 +36,8 @@ create p g = VMState { memory = listArray (0x0, 0xFFF) memContents
                      , v = listArray (0x0, 0xF) []
                      , stack = []
                      , display = listArray ((0,0),(63,31)) (repeat False)
+                     , pressed = S.empty
+                     , delayTimer = 0
                      , randGen = g }
   where
     memContents = replicate 0x200 0x0 ++ map fromIntegral p
