@@ -12,6 +12,7 @@ import Data.Array.Unboxed
 import Data.Array.Base
 import qualified Data.Set as S
 import System.Random
+import Data.Maybe
 
 -- | Represents the state of a CHIP-8 VM at any given time
 data VMState = VMState
@@ -23,6 +24,7 @@ data VMState = VMState
     , display :: UArray (Word, Word) Bool  -- ^ Simulates a b/w display
     , pressed :: S.Set Int                 -- ^ Set of currently pressed keys
     , delayTimer :: Word                   -- ^ The delay timer wait value
+    , waitForKeypress :: Maybe Word        -- ^ If set, store next keypress in this register
     , randGen :: StdGen                    -- ^ Generator for random nums
     } deriving (Show)
 
@@ -38,6 +40,7 @@ create p g = VMState { memory = listArray (0x0, 0xFFF) memContents
                      , display = listArray ((0,0),(63,31)) (repeat False)
                      , pressed = S.empty
                      , delayTimer = 0
+                     , waitForKeypress = Nothing
                      , randGen = g }
   where
     reservedMem = font ++ replicate (0x200 - length font) 0x0

@@ -352,7 +352,10 @@ opFX07 s@VMState { v = v, delayTimer = delayTimer } op =
 opFX0A :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-opFX0A s op = s
+opFX0A s@VMState { v = v } op =
+    s { waitForKeypress = (Just x) }
+  where
+    x = iX op
 
 -- | Set delay timer to VX
 opFX15 :: VMState  -- ^ Initial CPU state

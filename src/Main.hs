@@ -7,6 +7,7 @@ import qualified Data.ByteString as BS
 import System.IO
 import System.Random (newStdGen)
 import Numeric (showHex)
+import Data.Maybe
 
 import Graphics.Gloss.Data.Picture
 import Graphics.Gloss.Data.Color (black, white)
@@ -20,7 +21,9 @@ import Chip8.Opcodes (runInstruction)
 step :: VMState  -- ^ The starting state
      -> VMState  -- ^ The stepped through state
 step s@VMState { pc = pc, memory = memory, delayTimer = delayTimer } =
-    runInstruction s' op
+    case waitForKeypress s of
+        Nothing -> runInstruction s' op
+        Just _ -> s
   where
     op = nextInstruction s
     delayTimer' = if delayTimer > 0 then delayTimer - 1 else delayTimer
@@ -44,8 +47,14 @@ drawScreen s@VMState { display = d } =
 
 -- | Handles keyboard input by adding/removing pressed keys from the state
 handleInput :: Event -> VMState -> VMState
-handleInput (EventKey (Char c) ks _ _) s@VMState { pressed = pressed } =
-    if isHexDigit c then s { pressed = pressed' } else s
+handleInput (EventKey (Char c) ks _ _) s@VMState { pressed = pressed, v = v } =
+    if isHexDigit c
+    then case waitForKeypress s of
+        Nothing -> s { pressed = pressed' }
+        Just x -> s { pressed = pressed'
+                    , v = v // [(x, fromIntegral c')]  -- Set VX to the key
+                    , waitForKeypress = Nothing }      -- Remove the wait flag
+    else s
   where
     c' = digitToInt c
     pressed' = case ks of
