@@ -401,7 +401,7 @@ opFX33 s@VMState { v = v, i = i, memory = memory } op =
     vx = v ! iX op
     ones = vx `mod` 10
     tens = (vx `div` 10) `mod` 10
-    hundreds = (vx `div` 100) `mod` 10
+    hundreds = vx `div` 100
     bcd = [(i, hundreds), (i + 1, tens), (i + 2, ones)]
 
 -- | Store V0 to VX in memory starting at address I
@@ -455,10 +455,13 @@ drawSprite s@VMState { display = display } x y addr n =
     inBounds (x, y) = (x >= 0 && x < 64) && (y >= 0 && y < 32)
     -- Gets the sprite's relative pixels, adds offsets and filters out of bounds
     sprite = filter inBounds $ map addOffset $ getSprite s addr n
-    -- Checks if any sprite pixels collide with existing displayed pixels
-    collision = any (\c -> not (boolXor (display ! c) True)) sprite
-    -- Generates the list of changed array values for the display
-    display' = map (\coord -> (coord, True)) sprite
+    -- Folding func to turn sprite in to updated pixels and flag on collision
+    folder (coll, display') coord =
+        (if coll then coll else not pixel, (coord, pixel):display')
+      where
+        pixel = boolXor (display ! coord) True
+    -- Actually fold over the sprite coordinates
+    (collision, display') = foldl folder (False, []) sprite
 
 -- | Performs a XOR bitwise operation on two boolean values
 boolXor :: Bool -> Bool -> Bool
