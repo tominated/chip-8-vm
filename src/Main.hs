@@ -31,17 +31,29 @@ step s@VMState { pc = pc, memory = memory, delayTimer = delayTimer } =
 
 -- | Generates a Gloss picture to represent the current state's display
 drawScreen :: VMState -> Picture
-drawScreen s@VMState { display = d } =
-    scale 1 (-1) $
-    translate (-320) (-160) $
-    color white $
-    pictures $
-    [(translate x' y' pixel)
-        | x <- [0,1..63]
-        , y <- [0,1..31]
-        , let x' = fromIntegral (x * 10)
-        , let y' = fromIntegral (y * 10)
-        , d ! (x, y) ]
+drawScreen s@VMState { display = d } = color white $
+    pictures [
+        translate 200 160 $
+        scale 0.25 0.25 $
+        text $ "del:" ++ show (delayTimer s),
+
+        translate (-40) 160 $
+        scale 0.25 0.25 $
+        text $ "pc:" ++ showHex (pc s) "",
+
+        translate (-320) 160 $
+        scale 0.25 0.25 $
+        text $ "op:" ++ showHex (nextInstruction s) "",
+
+        translate (-320) 140 $
+        scale 1 (-1) $
+        pictures
+        [translate x' y' pixel
+            | x <- [0,1..63]
+            , y <- [0,1..31]
+            , let x' = fromIntegral (x * 10)
+            , let y' = fromIntegral (y * 10)
+            , d ! (x, y)]]
   where
     pixel = rectangleSolid 10 10
 
@@ -76,10 +88,10 @@ run state =
         step'        -- State stepping function
   where
     step' _ = step
-    window = InWindow "CHIP-8" (660, 340) (10, 10)
+    window = InWindow "CHIP-8" (660, 380) (10, 10)
 
 main :: IO ()
 main = do
-    program <- BS.readFile "./roms/BRIX"
+    program <- BS.readFile "./roms/LOGO"
     randGen <- newStdGen
     run $ create (BS.unpack program) randGen

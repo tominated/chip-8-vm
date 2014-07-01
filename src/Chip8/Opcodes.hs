@@ -353,7 +353,7 @@ opFX0A :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX0A s@VMState { v = v } op =
-    s { waitForKeypress = (Just x) }
+    s { waitForKeypress = Just x }
   where
     x = iX op
 
@@ -411,10 +411,11 @@ opFX55 :: VMState  -- ^ Initial CPU state
 opFX55 s@VMState { v = v, i = i, memory = memory } op =
     s { i = i', memory = memory // memory' }
   where
-    i' = i + (iX op) + 1
-    v0x = [v ! x | x <- range (0, iX op)]
-    memory' = [(fromIntegral l, vy) | vy <- v0x
-                                    , l <- range (fromIntegral i, length v0x)]
+    i' = i + iX op + 1
+    v0x = map (v !) (range (0, iX op))
+    memory' = zipWith (\ a b -> (fromIntegral a, b))
+                      (range (fromIntegral i, length v0x))
+                      v0x
 
 -- | Store memory in V0 to VX starting from I
 opFX65 :: VMState  -- ^ Initial CPU state
@@ -423,9 +424,9 @@ opFX65 :: VMState  -- ^ Initial CPU state
 opFX65 s@VMState { v = v, i = i, memory = memory } op =
     s { i = i',  v = v // v' }
   where
-    i' = i + (iX op) + 1
-    mem = [memory ! x | x <- range (i, i + (iX op))]
-    v' = [(vi, ii) | vi <- range (0, (iX op)), ii <- mem]
+    i' = i + iX op + 1
+    mem = [memory ! x | x <- range (i, i + iX op)]
+    v' = zip (range (0, iX op)) mem
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
 getSprite :: VMState         -- ^ The VM state
