@@ -92,6 +92,6 @@ run state =
 
 main :: IO ()
 main = do
-    program <- BS.readFile "./roms/LOGO"
+    program <- BS.readFile "./roms/BRIX"
     randGen <- newStdGen
     run $ create (BS.unpack program) randGen
