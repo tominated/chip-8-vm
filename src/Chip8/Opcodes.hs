@@ -9,6 +9,7 @@ import Data.Array.Unboxed
 import qualified Data.Set as S
 import System.Random
 import Numeric (showHex)
+import Control.Arrow ((&&&))
 
 import Chip8.State (VMState(..))
 
@@ -115,10 +116,9 @@ op2NNN s@VMState { pc = pc, stack = stack } op =
 op3XKK :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-op3XKK s@VMState { pc = pc, v = v } op =
-    if vx == iKK op
-    then s { pc = pc + 2 }
-    else s
+op3XKK s@VMState { pc = pc, v = v } op
+  | vx == iKK op = s { pc = pc + 2 }
+  | otherwise = s
   where
     vx = v ! iX op
 
@@ -126,10 +126,9 @@ op3XKK s@VMState { pc = pc, v = v } op =
 op4XKK :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-op4XKK s@VMState { pc = pc, v = v } op =
-    if vx /= iKK op
-    then s { pc = pc + 2 }
-    else s
+op4XKK s@VMState { pc = pc, v = v } op
+  | vx /= iKK op = s { pc = pc + 2 }
+  | otherwise = s
   where
     vx = v ! iX op
 
@@ -137,10 +136,9 @@ op4XKK s@VMState { pc = pc, v = v } op =
 op5XY0 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-op5XY0 s@VMState { pc = pc, v = v } op =
-    if vx == vy
-    then s { pc = pc + 2 }
-    else s
+op5XY0 s@VMState { pc = pc, v = v } op
+  | vx == vy = s { pc = pc + 2 }
+  | otherwise = s
   where
     vx = v ! iX op
     vy = v ! iY op
@@ -267,16 +265,15 @@ op8XYE s@VMState { v = v } op =
     x = iX op
     vx = v ! x
     mostSignificant = shiftR vx 7
-    result = (shiftL vx 1) .&. 0xFF
+    result = shiftL vx 1 .&. 0xFF
 
 -- | Skip next instruction if VX != VY
 op9XY0 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-op9XY0 s@VMState { pc = pc, v = v } op =
-    if vx /= vy
-    then s { pc = pc + 2 }
-    else s
+op9XY0 s@VMState { pc = pc, v = v } op
+    | vx /= vy = s { pc = pc + 2 }
+    | otherwise = s
   where
     vx = v ! iX op
     vy = v ! iY op
@@ -322,8 +319,9 @@ opDXYN s@VMState { v = v, i = i } op =
 opEX9E :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-opEX9E s@VMState { pc = pc, v = v, pressed = pressed } op =
-    if pressed' then s { pc = pc + 2 } else s
+opEX9E s@VMState { pc = pc, v = v, pressed = pressed } op
+  | pressed' = s { pc = pc + 2 }
+  | otherwise = s
   where
     vx = v ! iX op
     pressed' = S.member (fromIntegral vx) pressed
@@ -332,8 +330,9 @@ opEX9E s@VMState { pc = pc, v = v, pressed = pressed } op =
 opEXA1 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-opEXA1 s@VMState { pc = pc, v = v, pressed = pressed } op =
-    if up then s { pc = pc + 2 } else s
+opEXA1 s@VMState { pc = pc, v = v, pressed = pressed } op
+  | up = s { pc = pc + 2 }
+  | otherwise = s
   where
     vx = v ! iX op
     up = S.notMember (fromIntegral vx) pressed
@@ -412,9 +411,7 @@ opFX55 s@VMState { v = v, i = i, memory = memory } op =
   where
     x = iX op
     i' = i + x + 1
-    memory' = zipWith (\ a r -> (fromIntegral a, v ! r))
-                      (range (fromIntegral i, i + x))  -- Memory addresses
-                      (range (0, x))                   -- Registers
+    memory' = map ((+) i &&& (!) v) (range (0, x))
 
 -- | Store memory in V0 to VX starting from I
 opFX65 :: VMState  -- ^ Initial CPU state
@@ -425,9 +422,7 @@ opFX65 s@VMState { v = v, i = i, memory = memory } op =
   where
     x = iX op
     i' = i + x + 1
-    v' = zipWith (\ r a -> (r, memory ! a))
-                 (range (0, x))      -- Registers
-                 (range (i, i + x))  -- Memory addresses
+    v' = map (\ n -> (n, memory ! (i + n))) (range (0, x))
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
 getSprite :: VMState         -- ^ The VM state
@@ -458,8 +453,9 @@ drawSprite s@VMState { display = display } x y addr n =
     -- Gets the sprite's relative pixels, adds offsets and filters out of bounds
     sprite = filter inBounds $ map addOffset $ getSprite s addr n
     -- Folding func to turn sprite in to updated pixels and flag on collision
-    folder (coll, display') coord =
-        (if coll then coll else not pixel, (coord, pixel):display')
+    folder (coll, display') coord
+      | coll = (coll, (coord, pixel):display')
+      | not coll = (not pixel, (coord, pixel):display')
       where
         pixel = boolXor (display ! coord) True
     -- Actually fold over the sprite coordinates
