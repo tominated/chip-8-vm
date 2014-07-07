@@ -51,8 +51,8 @@ drawScreen s@VMState { display = d } = color white $
         [translate x' y' pixel
             | x <- [0,1..63]
             , y <- [0,1..31]
-            , let x' = fromIntegral (x * 10)
-            , let y' = fromIntegral (y * 10)
+            , let x' = (fromIntegral x) * 10
+            , let y' = (fromIntegral y) * 10
             , d ! (x, y)]]
   where
     pixel = rectangleSolid 10 10
@@ -67,7 +67,7 @@ handleInput (EventKey (Char c) ks _ _) s@VMState { pressed = pressed, v = v }
                   , waitForKeypress = Nothing }      -- Remove the wait flag
   | otherwise = s
   where
-    c' = digitToInt c
+    c' = fromIntegral $ digitToInt c
     pressed' = case ks of
         Down -> S.insert c' pressed
         Up -> S.delete c' pressed
@@ -91,6 +91,6 @@ run state =
 
 main :: IO ()
 main = do
-    program <- BS.readFile "./roms/BRIX"
+    program <- BS.readFile "./roms/INVADERS"
     randGen <- newStdGen
     run $ create (BS.unpack program) randGen

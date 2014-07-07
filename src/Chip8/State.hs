@@ -16,16 +16,16 @@ import Data.Maybe
 
 -- | Represents the state of a CHIP-8 VM at any given time
 data VMState = VMState
-    { memory :: UArray Word Word           -- ^ VM Memory
-    , pc :: Word                           -- ^ Program counter
-    , i :: Word                            -- ^ 16-bit register
-    , v :: UArray Word Word                -- ^ 8-bit registers
-    , stack :: [Word]                      -- ^ The call stack
-    , display :: UArray (Word, Word) Bool  -- ^ Simulates a b/w display
-    , pressed :: S.Set Int                 -- ^ Set of currently pressed keys
-    , delayTimer :: Word                   -- ^ The delay timer wait value
-    , waitForKeypress :: Maybe Word        -- ^ If set, store next keypress in this register
-    , randGen :: StdGen                    -- ^ Generator for random nums
+    { memory :: UArray Word16 Word8          -- ^ VM Memory
+    , pc :: Word16                           -- ^ Program counter
+    , i :: Word16                            -- ^ 16-bit register
+    , v :: UArray Word8 Word8                -- ^ 8-bit registers
+    , stack :: [Word16]                      -- ^ The call stack
+    , display :: UArray (Word8, Word8) Bool  -- ^ Simulates a b/w display
+    , pressed :: S.Set Word8                 -- ^ Set of currently pressed keys
+    , delayTimer :: Word                     -- ^ The delay timer wait value
+    , waitForKeypress :: Maybe Word8         -- ^ If set, store next keypress in this register
+    , randGen :: StdGen                      -- ^ Generator for random nums
     } deriving (Show)
 
 -- | Creates a new VM state for a given program ROM
@@ -47,7 +47,7 @@ create p g = VMState { memory = listArray (0x0, 0xFFF) memContents
     memContents = reservedMem ++ map fromIntegral p
 
 -- | The Chip-8 font represented as sprites
-font :: [Word]
+font :: [Word8]
 font = [ 0xF0, 0x90, 0x90, 0x90, 0xF0,   -- 0
          0x20, 0x60, 0x20, 0x20, 0x70,   -- 1
          0xF0, 0x10, 0xF0, 0x80, 0xF0,   -- 2
@@ -67,7 +67,7 @@ font = [ 0xF0, 0x90, 0x90, 0x90, 0xF0,   -- 0
 
 -- | Retrieves the next CPU instruction for the a vm
 nextInstruction :: VMState  -- ^ The starting state
-                -> Word     -- ^ The next instruction to run
+                -> Word16   -- ^ The next instruction to run
 nextInstruction VMState { pc = pc, memory = memory } =
     shiftL b1 8 + b2
   where

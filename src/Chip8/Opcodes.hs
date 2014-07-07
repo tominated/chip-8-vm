@@ -14,7 +14,7 @@ import Control.Arrow ((&&&))
 import Chip8.State (VMState(..))
 
 runInstruction :: VMState  -- ^ Initial CPU state
-               -> Word     -- ^ Full CPU instruction
+               -> Word16   -- ^ Full CPU instruction
                -> VMState  -- ^ Resulting CPU state
 runInstruction s operands = op s operands
   where
@@ -63,35 +63,35 @@ runInstruction s operands = op s operands
         _ -> error $ showHex operands ""
 
 -- | Get the NNN value from an instruction
-iNNN :: Word -> Word
-iNNN = (.&.) 0x0FFF
+iNNN :: Word16 -> Word16
+iNNN = fromIntegral . ((.&.) 0x0FFF)
 
 -- | Get the KK value from an instruction
-iKK :: Word -> Word
-iKK = (.&.) 0x00FF
+iKK :: Word16 -> Word8
+iKK = fromIntegral . (0x00FF .&.)
 
 -- | Get the N value from an instruction
-iN :: Word -> Word
-iN = (.&.) 0x000F
+iN :: Word16 -> Word8
+iN = fromIntegral . (0x000F .&.)
 
 -- | Get the X value from an instruction
-iX :: Word -> Word
-iX op = shiftR (op .&. 0x0F00) 8
+iX :: Word16 -> Word8
+iX op = fromIntegral $ shiftR (op .&. 0x0F00) 8
 
 -- | Get the Y value from an instruction
-iY :: Word -> Word
-iY op = shiftR (op .&. 0x00F0) 4
+iY :: Word16 -> Word8
+iY op = fromIntegral $ shiftR (op .&. 0x00F0) 4
 
 -- | Clear the display
 op00E0 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op00E0 s _ =
     s { display = listArray ((0,0),(63,31)) (repeat False) }
 
 -- | Return from subroutine
 op00EE :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op00EE s@VMState { stack = stack } _ =
     s { pc = pc', stack = stack' }
@@ -100,21 +100,21 @@ op00EE s@VMState { stack = stack } _ =
 
 -- | Jump to location NNN
 op1NNN :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op1NNN s op =
     s { pc = iNNN op }
 
 -- | Call subroutine at location NNN
 op2NNN :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op2NNN s@VMState { pc = pc, stack = stack } op =
     s { pc = iNNN op, stack = pc : stack }
 
 -- | Skip next instruction if VX == KK
 op3XKK :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op3XKK s@VMState { pc = pc, v = v } op
   | vx == iKK op = s { pc = pc + 2 }
@@ -124,7 +124,7 @@ op3XKK s@VMState { pc = pc, v = v } op
 
 -- | Skip next instruction if VX != KK
 op4XKK :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op4XKK s@VMState { pc = pc, v = v } op
   | vx /= iKK op = s { pc = pc + 2 }
@@ -134,7 +134,7 @@ op4XKK s@VMState { pc = pc, v = v } op
 
 -- | Skip next instruction if VX == VY
 op5XY0 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op5XY0 s@VMState { pc = pc, v = v } op
   | vx == vy = s { pc = pc + 2 }
@@ -145,14 +145,14 @@ op5XY0 s@VMState { pc = pc, v = v } op
 
 -- | Set VX = KK
 op6XKK :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op6XKK s@VMState { v = v } op =
     s { v = v // [(iX op, iKK op)] }
 
 -- | Set VX = VX + KK
 op7XKK :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op7XKK s@VMState { v = v } op =
     s { v = v // [(x, vx + iKK op)] }
@@ -162,14 +162,14 @@ op7XKK s@VMState { v = v } op =
 
 -- | Set VX to VY
 op8XY0 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY0 s@VMState { v = v } op =
     s { v = v // [(iX op, v ! iY op)] }
 
 -- | Set VX to VX OR VY
 op8XY1 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY1 s@VMState { v = v } op =
     s { v = v // [(x, vx .|. vy)] }
@@ -180,7 +180,7 @@ op8XY1 s@VMState { v = v } op =
 
 -- | Set VX to VX AND VY
 op8XY2 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY2 s@VMState { v = v } op =
     s { v = v // [(x, vx .&. vy)] }
@@ -191,7 +191,7 @@ op8XY2 s@VMState { v = v } op =
 
 -- | Set VX to VX XOR XY
 op8XY3 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY3 s@VMState { v = v } op =
     s { v = v // [(x, vx `xor` vy)] }
@@ -202,7 +202,7 @@ op8XY3 s@VMState { v = v } op =
 
 -- | Add VY to VX. Set VF to 1 when there is a carry, or 0 if not
 op8XY4 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY4 s@VMState { v = v } op =
     s { v = v // [(x, result .&. 0xFF), (0xF, carry)] }
@@ -215,7 +215,7 @@ op8XY4 s@VMState { v = v } op =
 
 -- | Set VX to VX - VY. Set VF to 0 when there is a borrow, or 1 if not
 op8XY5 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY5 s@VMState { v = v } op =
     s { v = v // [(x, result), (0xF, borrow)] }
@@ -229,7 +229,7 @@ op8XY5 s@VMState { v = v } op =
 -- | Shift VX right by 1.
 --   VF is set to the least significant bit before the shift
 op8XY6 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY6 s@VMState { v = v } op =
     s { v = v // [(x, result), (0xF, leastSignificant)] }
@@ -241,7 +241,7 @@ op8XY6 s@VMState { v = v } op =
 
 -- | Set VX to VY - VX. Set VF to 0 when there is a borrow, or 1 if not
 op8XY7 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY7 s@VMState { v = v } op =
     s { v = v // [(x, result), (0xF, borrow)] }
@@ -255,7 +255,7 @@ op8XY7 s@VMState { v = v } op =
 -- | Shift VX left by 1
 --   VF is set to the most significant bit before the shift
 op8XYE :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XYE s@VMState { v = v } op =
     s { v = v // [(x, result), (0xF, mostSignificant)] }
@@ -267,7 +267,7 @@ op8XYE s@VMState { v = v } op =
 
 -- | Skip next instruction if VX != VY
 op9XY0 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op9XY0 s@VMState { pc = pc, v = v } op
     | vx /= vy = s { pc = pc + 2 }
@@ -278,21 +278,23 @@ op9XY0 s@VMState { pc = pc, v = v } op
 
 -- | Set i = NNN
 opANNN :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opANNN s op =
     s { i = iNNN op }
 
 -- | Jump to location NNN + V0
 opBNNN :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opBNNN s@VMState { pc = pc, v = v } op =
-    s { pc = pc + iNNN op + (v ! 0x0) }
+    s { pc = iNNN op + v0 }
+  where
+    v0 = fromIntegral $ v ! 0x0
 
 -- | Set VX = (random byte) & KK
 opCXKK :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opCXKK s@VMState { v = v, randGen = randGen } op =
     s { v = v', randGen = randGen' }
@@ -303,7 +305,7 @@ opCXKK s@VMState { v = v, randGen = randGen } op =
 -- | Paint N byte long sprite starting at location I at (VX, VY)
 --   Also set VF = collision
 opDXYN :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opDXYN s@VMState { v = v, i = i } op =
     s' { v = v // [(0xF, collision')] }
@@ -315,7 +317,7 @@ opDXYN s@VMState { v = v, i = i } op =
 
 -- | Skip next instruction if key VX is pressed
 opEX9E :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opEX9E s@VMState { pc = pc, v = v, pressed = pressed } op
   | pressed' = s { pc = pc + 2 }
@@ -326,7 +328,7 @@ opEX9E s@VMState { pc = pc, v = v, pressed = pressed } op
 
 -- | Skip next instruction if key VX is up
 opEXA1 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opEXA1 s@VMState { pc = pc, v = v, pressed = pressed } op
   | up = s { pc = pc + 2 }
@@ -337,48 +339,48 @@ opEXA1 s@VMState { pc = pc, v = v, pressed = pressed } op
 
 -- | Set VX to the value of the delay timer
 opFX07 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX07 s@VMState { v = v, delayTimer = delayTimer } op =
     s { v = v // [(iX op, fromIntegral delayTimer)] }
 
 -- | Wait for keypress then store in VX
 opFX0A :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX0A s@VMState { v = v } op =
     s { waitForKeypress = Just (iX op) }
 
 -- | Set delay timer to VX
 opFX15 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX15 s@VMState { v = v } op =
-    s { delayTimer = v ! iX op }
+    s { delayTimer = fromIntegral $ v ! iX op }
 
 -- | Set sound timer to VX
 opFX18 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX18 s op = s
 
 -- | Set op = I + VX
 opFX1E :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX1E s@VMState { v = v, i = i } op =
-    s { i = i + (v ! iX op) }
+    s { i = i + (fromIntegral $ v ! iX op) }
 
 -- | Set I to the location of the sprite for the character in VX
 opFX29 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX29 s@VMState { v = v } op =
-    s { i = (v ! iX op) * 5 } -- Char sprites are 5 bytes long and start at 0
+    s { i = (fromIntegral $ v ! iX op) * 5 } -- Char sprites are 5 bytes long and start at 0
 
 -- | Store BCD of VX at I, I+1 and I+2
 opFX33 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX33 s@VMState { v = v, i = i, memory = memory } op =
     s { memory = memory // bcd }
@@ -391,42 +393,43 @@ opFX33 s@VMState { v = v, i = i, memory = memory } op =
 
 -- | Store V0 to VX in memory starting at address I
 opFX55 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX55 s@VMState { pc = pc, v = v, i = i, memory = memory } op =
     s { memory = memory // memory' }
   where
-    x = iX op
-    memory' = map ((+) i &&& (!) v) (range (0, x))
+    x = fromIntegral $ iX op
+    --memory' = map ((+) i &&& (!) v) (range (0, x))
+    memory' = map (\n -> (i + fromIntegral n, v ! n)) (range (0, x))
 
 -- | Store memory in V0 to VX starting from I
 opFX65 :: VMState  -- ^ Initial CPU state
-       -> Word     -- ^ Full CPU instruction
+       -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX65 s@VMState { v = v, i = i, memory = memory } op =
     s { v = v // v' }
   where
     x = iX op
-    v' = map (\ n -> (n, memory ! (i + n))) (range (0, x))
+    v' = map (\ n -> (n, memory ! (i + fromIntegral n))) (range (0, x))
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
-getSprite :: VMState         -- ^ The VM state
-          -> Word            -- ^ The memory address of the sprite
-          -> Word            -- ^ The byte length of the sprite in memory
-          -> [(Word, Word)]  -- ^ Pixel coordinates representing the sprite
+getSprite :: VMState           -- ^ The VM state
+          -> Word16            -- ^ The memory address of the sprite
+          -> Word8             -- ^ The byte length of the sprite in memory
+          -> [(Word8, Word8)]  -- ^ Pixel coordinates representing the sprite
 getSprite s@VMState { memory = memory } addr n =
     [(fromIntegral x, fromIntegral y)
         | y <- range (0, n - 1)
         , x <- [0,1..7]
         , let shift = 7 - x -- This prevents the sprite from being flipped
-        , shiftR (memory ! (addr + y)) shift .&. 1 == 1]
+        , shiftR (memory ! (addr + fromIntegral y)) shift .&. 1 == 1]
 
 -- | Draws a sprite on the display and finds if there is a collision
 drawSprite :: VMState          -- ^ The VM state
-           -> Word             -- ^ X coordinate to draw from
-           -> Word             -- ^ Y coordinate to draw from
-           -> Word             -- ^ The memory address of the sprite
-           -> Word             -- ^ The byte length of the sprite in memory
+           -> Word8            -- ^ X coordinate to draw from
+           -> Word8            -- ^ Y coordinate to draw from
+           -> Word16           -- ^ The memory address of the sprite
+           -> Word8            -- ^ The byte length of the sprite in memory
            -> (Bool, VMState)  -- ^ The new state and if a collision occured
 drawSprite s@VMState { display = display } x y addr n =
     (collision, s { display = display // display' })
