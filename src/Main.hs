@@ -59,14 +59,13 @@ drawScreen s@VMState { display = d } = color white $
 
 -- | Handles keyboard input by adding/removing pressed keys from the state
 handleInput :: Event -> VMState -> VMState
-handleInput (EventKey (Char c) ks _ _) s@VMState { pressed = pressed, v = v } =
-    if isHexDigit c
-    then case waitForKeypress s of
-        Nothing -> s { pressed = pressed' }
-        Just x -> s { pressed = pressed'
-                    , v = v // [(x, fromIntegral c')]  -- Set VX to the key
-                    , waitForKeypress = Nothing }      -- Remove the wait flag
-    else s
+handleInput (EventKey (Char c) ks _ _) s@VMState { pressed = pressed, v = v }
+  | isHexDigit c = case waitForKeypress s of
+      Nothing -> s { pressed = pressed' }
+      Just x -> s { pressed = pressed'
+                  , v = v // [(x, fromIntegral c')]  -- Set VX to the key
+                  , waitForKeypress = Nothing }      -- Remove the wait flag
+  | otherwise = s
   where
     c' = digitToInt c
     pressed' = case ks of

@@ -165,9 +165,7 @@ op8XY0 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 op8XY0 s@VMState { v = v } op =
-    s { v = v // [(iX op, vy)] }
-  where
-    vy = v ! iY op
+    s { v = v // [(iX op, v ! iY op)] }
 
 -- | Set VX to VX OR VY
 op8XY1 :: VMState  -- ^ Initial CPU state
@@ -342,27 +340,21 @@ opFX07 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX07 s@VMState { v = v, delayTimer = delayTimer } op =
-    s { v = v' }
-  where
-    v' = v // [(iX op, fromIntegral delayTimer)]
+    s { v = v // [(iX op, fromIntegral delayTimer)] }
 
 -- | Wait for keypress then store in VX
 opFX0A :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX0A s@VMState { v = v } op =
-    s { waitForKeypress = Just x }
-  where
-    x = iX op
+    s { waitForKeypress = Just (iX op) }
 
 -- | Set delay timer to VX
 opFX15 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX15 s@VMState { v = v } op =
-    s { delayTimer = vx }
-  where
-    vx = v ! iX op
+    s { delayTimer = v ! iX op }
 
 -- | Set sound timer to VX
 opFX18 :: VMState  -- ^ Initial CPU state
@@ -375,19 +367,14 @@ opFX1E :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX1E s@VMState { v = v, i = i } op =
-    s { i = i + vx }
-  where
-    vx = v ! iX op
+    s { i = i + (v ! iX op) }
 
 -- | Set I to the location of the sprite for the character in VX
 opFX29 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX29 s@VMState { v = v } op =
-    s { i = i' }
-  where
-    vx = v ! iX op
-    i' = vx * 5 -- Character sprites are 5 bytes long and start at 0
+    s { i = (v ! iX op) * 5 } -- Char sprites are 5 bytes long and start at 0
 
 -- | Store BCD of VX at I, I+1 and I+2
 opFX33 :: VMState  -- ^ Initial CPU state
@@ -406,11 +393,10 @@ opFX33 s@VMState { v = v, i = i, memory = memory } op =
 opFX55 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
-opFX55 s@VMState { v = v, i = i, memory = memory } op =
-    s { i = i', memory = memory // memory' }
+opFX55 s@VMState { pc = pc, v = v, i = i, memory = memory } op =
+    s { memory = memory // memory' }
   where
     x = iX op
-    i' = i + x + 1
     memory' = map ((+) i &&& (!) v) (range (0, x))
 
 -- | Store memory in V0 to VX starting from I
@@ -418,10 +404,9 @@ opFX65 :: VMState  -- ^ Initial CPU state
        -> Word     -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX65 s@VMState { v = v, i = i, memory = memory } op =
-    s { i = i',  v = v // v' }
+    s { v = v // v' }
   where
     x = iX op
-    i' = i + x + 1
     v' = map (\ n -> (n, memory ! (i + n))) (range (0, x))
 
 -- | Gets a sprite from a memory location and returns it's pixel coordinates
