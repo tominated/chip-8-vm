@@ -7,3 +7,7 @@ Currently fully working apart from the following:
 
 * Separate delay timer clock (currently unfeasable)
 * Sound (need appropriate library)
+
+Here's a preview:
+
+![Space Invaders](http://i.imgur.com/mRNU7xb.jpg)
