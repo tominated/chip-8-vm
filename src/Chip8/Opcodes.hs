@@ -9,7 +9,6 @@ import Data.Array.Unboxed
 import qualified Data.Set as S
 import System.Random
 import Numeric (showHex)
-import Control.Arrow ((&&&))
 
 import Chip8.State (VMState(..))
 
@@ -64,23 +63,23 @@ runInstruction s operands = op s operands
 
 -- | Get the NNN value from an instruction
 iNNN :: Word16 -> Word16
-iNNN = fromIntegral . ((.&.) 0x0FFF)
+iNNN = fromIntegral . (0xFFF .&.)
 
 -- | Get the KK value from an instruction
 iKK :: Word16 -> Word8
-iKK = fromIntegral . (0x00FF .&.)
+iKK = fromIntegral . (0xFF .&.)
 
 -- | Get the N value from an instruction
 iN :: Word16 -> Word8
-iN = fromIntegral . (0x000F .&.)
+iN = fromIntegral . (0xF .&.)
 
 -- | Get the X value from an instruction
 iX :: Word16 -> Word8
-iX op = fromIntegral $ shiftR (op .&. 0x0F00) 8
+iX = fromIntegral . flip shiftR 8 . (0xF00 .&.)
 
 -- | Get the Y value from an instruction
 iY :: Word16 -> Word8
-iY op = fromIntegral $ shiftR (op .&. 0x00F0) 4
+iY = fromIntegral . flip shiftR 4 . (0xF0 .&.)
 
 -- | Clear the display
 op00E0 :: VMState  -- ^ Initial CPU state
@@ -211,7 +210,7 @@ op8XY4 s@VMState { v = v } op =
     vx = v ! x
     vy = v ! iY op
     result = vx + vy
-    carry = if result > 255 then 1 else 0
+    carry = boolToFlag $ result > 255
 
 -- | Set VX to VX - VY. Set VF to 0 when there is a borrow, or 1 if not
 op8XY5 :: VMState  -- ^ Initial CPU state
@@ -224,7 +223,7 @@ op8XY5 s@VMState { v = v } op =
     vx = v ! x
     vy = v ! iY op
     result = vx - vy
-    borrow = if vx > vy then 1 else 0
+    borrow = boolToFlag $ vx > vy
 
 -- | Shift VX right by 1.
 --   VF is set to the least significant bit before the shift
@@ -250,7 +249,7 @@ op8XY7 s@VMState { v = v } op =
     vx = v ! x
     vy = v ! iY op
     result = vy - vx
-    borrow = if vy > vx then 1 else 0
+    borrow = boolToFlag $ vy > vx
 
 -- | Shift VX left by 1
 --   VF is set to the most significant bit before the shift
@@ -313,7 +312,7 @@ opDXYN s@VMState { v = v, i = i } op =
     vx = v ! iX op
     vy = v ! iY op
     (collision, s') = drawSprite s vx vy i (iN op)
-    collision' = if collision then 1 else 0
+    collision' = boolToFlag collision
 
 -- | Skip next instruction if key VX is pressed
 opEX9E :: VMState  -- ^ Initial CPU state
@@ -369,14 +368,14 @@ opFX1E :: VMState  -- ^ Initial CPU state
        -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX1E s@VMState { v = v, i = i } op =
-    s { i = i + (fromIntegral $ v ! iX op) }
+    s { i = i + fromIntegral  (v ! iX op) }
 
 -- | Set I to the location of the sprite for the character in VX
 opFX29 :: VMState  -- ^ Initial CPU state
        -> Word16   -- ^ Full CPU instruction
        -> VMState  -- ^ Resulting CPU state
 opFX29 s@VMState { v = v } op =
-    s { i = (fromIntegral $ v ! iX op) * 5 } -- Char sprites are 5 bytes long and start at 0
+    s { i = fromIntegral (v ! iX op) * 5 } -- Char sprites are 5 bytes long and start at 0
 
 -- | Store BCD of VX at I, I+1 and I+2
 opFX33 :: VMState  -- ^ Initial CPU state
@@ -399,7 +398,6 @@ opFX55 s@VMState { pc = pc, v = v, i = i, memory = memory } op =
     s { memory = memory // memory' }
   where
     x = fromIntegral $ iX op
-    --memory' = map ((+) i &&& (!) v) (range (0, x))
     memory' = map (\n -> (i + fromIntegral n, v ! n)) (range (0, x))
 
 -- | Store memory in V0 to VX starting from I
@@ -448,6 +446,11 @@ drawSprite s@VMState { display = display } x y addr n =
         pixel = boolXor (display ! coord) True
     -- Actually fold over the sprite coordinates
     (collision, display') = foldl folder (False, []) sprite
+
+-- | Converts a boolean value to a 1 or 0 Word8 flag
+boolToFlag :: Bool -> Word8
+boolToFlag True = 1
+boolToFlag False = 0
 
 -- | Performs a XOR bitwise operation on two boolean values
 boolXor :: Bool -> Bool -> Bool
